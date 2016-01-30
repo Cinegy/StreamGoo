@@ -1,6 +1,6 @@
 ﻿#Cinegy StreamGoo Tool
 
->Use this tool to break your RTP streams, and then see what damage you can cause.
+Use this tool to break your RTP streams, and then see what damage you can cause.
 
 ##Why would I do this?
 
@@ -22,7 +22,8 @@ Just run the EXE from inside a command-prompt, and a handy help message will pop
 
 Double click, or just run without (or with incorrect) arguments, and you'll see this:
 
-```λ StreamGoo.exe                                                                          
+```
+StreamGoo.exe                                                                          
 StreamGoo 1.0.0.0                                                                        
 Copyright ©Cinegy GmbH  2016                                                             
                                                                                          
@@ -73,7 +74,8 @@ ERROR(S):
                                                                                          
   --help                    Display this help screen.                                    
                                                                                          
-Press enter to exit      ```                                                                
+Press enter to exit      
+```                                                                
 
 Even better, just to make your life easier (we know you are too lazy to grab VS2015 Community and compile it), we auto-build this using AppVeyor - here is how we are doing right now: 
 
