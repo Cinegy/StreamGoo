@@ -16,6 +16,65 @@ You can also record whatever passes through this tool to file - so if you manage
 
 Well, we've added everything you need into a single teeny-tiny EXE again, which just depends on .NET 4. And then we gave it all a nice Apache license, so you can tinker and throw the tool wherever you need to on the planet.
 
+Just run the EXE from inside a command-prompt, and a handy help message will pop up like this:
+
+##Command line arguments:
+
+Double click, or just run without (or with incorrect) arguments, and you'll see this:
+
+```λ StreamGoo.exe                                                                          
+StreamGoo 1.0.0.0                                                                        
+Copyright ©Cinegy GmbH  2016                                                             
+                                                                                         
+ERROR(S):                                                                                
+  -m/--multicastaddress required option is missing.                                      
+  -g/--mulicastgroup required option is missing.                                         
+  -n/--outputaddress required option is missing.                                         
+  -h/--outputport required option is missing.                                            
+                                                                                         
+                                                                                         
+  -a, --adapter             IP address of the adapter to listen for specified            
+                            multicast (has a random guess if left blank).                
+                                                                                         
+  -b, --outputadapter       IP address of the adapter to write the goo'd stream          
+                            to (has a random guess if left blank).                       
+                                                                                         
+  -m, --multicastaddress    Required. Input multicast address to read from.              
+                                                                                         
+  -g, --mulicastgroup       Required. Input multicast group port to read from.           
+                                                                                         
+  -n, --outputaddress       Required. Output address to write goo'd stream to.           
+                                                                                         
+  -h, --outputport          Required. Output multicast group or UDP port to              
+                            write goo'd stream to.                                       
+                                                                                         
+  -f, --goofactor           (Default: 0) Controllable level of Gooeyness to              
+                            insert into stream (chances in 1000 of inserting a           
+                            drop of scum).                                               
+                                                                                         
+  -p, --goopause            (Default: 0) How long to sleep between Goos                  
+                            (milliseconds)                                               
+                                                                                         
+  -d, --gooduration         (Default: 1000) How long to sleep between Goos               
+                            (millseconds)                                                
+                                                                                         
+  -t, --gootype             (Default: -1) Force a specific goo type rather than          
+                            changing each run                                            
+                                                                                         
+  -q, --quiet               (Default: False) Run in quiet mode - print nothing           
+                            to console.                                                  
+                                                                                         
+  -v, --verbose             (Default: False) Run in verbose mode.                        
+                                                                                         
+  -r, --record              Record output stream to a specified file.                    
+                                                                                         
+  -w, --warmup              (Default: 10000) Default normal, un-goo'd startup            
+                            period (milliseconds) before starting goo                    
+                                                                                         
+  --help                    Display this help screen.                                    
+                                                                                         
+Press enter to exit      ```                                                                
+
 Even better, just to make your life easier (we know you are too lazy to grab VS2015 Community and compile it), we auto-build this using AppVeyor - here is how we are doing right now: 
 
 [![Build status](https://ci.appveyor.com/api/projects/status/00th33u0a4ie1cbv/branch/master?svg=true)](https://ci.appveyor.com/project/cinegy/streamgoo/branch/master)
