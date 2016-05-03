@@ -270,7 +270,7 @@ namespace StreamGoo
                 return;
             }
 
-            var corruptOrNot = Random.Next(0, 1000);
+            var corruptOrNot = Random.Next(0, 10000);
 
             if (corruptOrNot >= gooFactor) return;
 
@@ -307,6 +307,11 @@ namespace StreamGoo
                     _outOfOrderPacketBuffer = data;
                     data = null;
                     PrintToConsole(@"Adding a little goo to your stream (out of order packet)");
+                    return;
+                case 6: //jitter - have a little snooze
+                    var timeToSleep = Random.Next(0, 80);
+                    PrintToConsole($"Adding a little goo to your stream (add jitter - sleep approx. {timeToSleep} ms)");
+                    Thread.Sleep(timeToSleep);
                     return;
             }
         }
@@ -359,7 +364,7 @@ namespace StreamGoo
         public int OutputMulticastGroup { get; set; }
 
         [Option('f', "goofactor", Required = false, DefaultValue = 0,
-        HelpText = "Controllable level of Gooeyness to insert into stream (chances in 1000 of inserting a drop of scum).")]
+        HelpText = "Controllable level of Gooeyness to insert into stream (chances in 10,000 of inserting a drop of scum).")]
         public int GooFactor { get; set; }
 
         [Option('p', "goopause", Required = false, DefaultValue = 0,
