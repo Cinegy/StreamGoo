@@ -53,6 +53,7 @@ namespace StreamGoo
         private static BinaryWriter _tsFileBinaryWriter;
         private static StreamWriter _logFileStreamWriter;
         private static long _recordedByteCounter;
+        private static byte[] _outOfOrderPacketBuffer;
 
         static void Main(string[] args)
         {
@@ -131,7 +132,7 @@ namespace StreamGoo
             client.Client.Bind(localEp);
 
             var parsedMcastAddr = IPAddress.Parse(multicastAddress);
-            client.JoinMulticastGroup(parsedMcastAddr);
+            client.JoinMulticastGroup(parsedMcastAddr, inputIp);
 
             var ts = new ThreadStart(delegate
             {
@@ -183,6 +184,13 @@ namespace StreamGoo
                             if (data != null)
                             {
                                 _outputClient.Send(data, data.Length);
+                                //check to see if any out-of-order packets are waiting to be sent
+                                if (_outOfOrderPacketBuffer != null)
+                                {
+                                    _outputClient.Send(_outOfOrderPacketBuffer, _outOfOrderPacketBuffer.Length);
+                                    _outOfOrderPacketBuffer = null;
+                                }
+                                
                                 if (_tsFileBinaryWriter != null)
                                 {
                                     //todo: add RTP header skipping to this call
@@ -294,6 +302,11 @@ namespace StreamGoo
                 case 4: //null whole packet
                     data = null;
                     PrintToConsole(@"Adding a little goo to your stream (discarding packet)");
+                    return;
+                case 5: //out of order packet
+                    _outOfOrderPacketBuffer = data;
+                    data = null;
+                    PrintToConsole(@"Adding a little goo to your stream (out of order packet)");
                     return;
             }
         }

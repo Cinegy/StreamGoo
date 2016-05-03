@@ -18,6 +18,17 @@ Well, we've added everything you need into a single teeny-tiny EXE again, which 
 
 Just run the EXE from inside a command-prompt, and a handy help message will pop up like this:
 
+##What type of Goo can I insert?
+
+We cater to a wide-range of requirements, and can perform the following corrputions (if you don't specify one, we randomly pick):
+
+Type 0 - Single bit error; we grab a single random byte from a packet, and then just flip a single bit from that byte... subtle, but effective.
+Type 1 - Single byte increment; we grab a single random byte from a packet, then add 1 to it. 
+Type 2 - Zero whole packet; as simple as it seems - set every byte in a packet to 0.
+Type 3 - Random value filling whole packet; not content with just writing zero into a packet? Stuff it full of some random number instead!
+Type 4 - Null whole packet; classic and simple, just take the packet, and eat it - like it never happened...
+Type 5 - Out of order packet; one for the RTP fans out there, just sits on a packet and then transmits it after the next packet - for if you ever wanted to actually see the difference between a plain UDP and RTP stream...
+
 ##Command line arguments:
 
 Double click, or just run without (or with incorrect) arguments, and you'll see this:
