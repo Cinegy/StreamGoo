@@ -280,16 +280,17 @@ namespace StreamGoo
             switch (_gooType)
             {
                 case 0: //single bit error
-                    var bitToAdd = Random.Next(0, 7);
-                    data[randomNumber] = (byte)(data[randomNumber] | (byte)bitToAdd);
+                    var pow = Random.Next(0, 8);
+                    var bitToAdd = 1 << pow;
+                    data[randomNumber] = (byte)(data[randomNumber] + (byte)(bitToAdd));
                     PrintToConsole(
-                        $@"Adding a little goo (single bit error) - Pos: {randomNumber}, Old: {oldval}, New: {data[
-                            randomNumber]}", true);
+                        $@"Adding a little goo (single bit error) - Pos: {randomNumber}, Old: {oldval} + {bitToAdd}, New: {data[
+                            randomNumber]}");
                     return;
                 case 1: //single byte increment
                     PrintToConsole(
                         $@"Adding a little goo (single byte increment) - Pos: {randomNumber}, Old: {oldval}, New: {++
-                            data[randomNumber]}", true);
+                            data[randomNumber]}");
                     return;
                 case 2: //zero whole packet
                     data = Enumerable.Repeat((byte)0x0, data.Length).ToArray();
