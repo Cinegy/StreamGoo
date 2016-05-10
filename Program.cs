@@ -54,6 +54,9 @@ namespace StreamGoo
         private static StreamWriter _logFileStreamWriter;
         private static long _recordedByteCounter;
         private static byte[] _outOfOrderPacketBuffer;
+        
+        private const byte SyncByte = 0x47;
+        private const int TsPacketSize = 188;
 
         static void Main(string[] args)
         {
@@ -314,6 +317,42 @@ namespace StreamGoo
                     PrintToConsole($"Adding a little goo to your stream (add jitter - sleep approx. {timeToSleep} ms)");
                     Thread.Sleep(timeToSleep);
                     return;
+                case 7: //transport error indicator randomly set
+                    PrintToConsole($"Adding a little goo to your stream (add Transport Error Indicator)");
+                    SetTEIFlag(ref data);
+                    return;
+            }
+        }
+
+        private static void SetTEIFlag(ref byte[] data)
+        {
+            var start = FindSync(ref data, 0);
+            data[start + 1] = (byte)(data[start + 1] + (byte)0x80);
+        }
+
+        private static int FindSync(ref byte[] tsData, int offset)
+        {
+            if (tsData == null) throw new ArgumentNullException(nameof(tsData));
+
+            try
+            {
+                for (var i = offset; i < tsData.Length; i++)
+                {
+                    //check to see if we found a sync byte
+                    if (tsData[i] != SyncByte) continue;
+                    if (i + 1 * TsPacketSize < tsData.Length && tsData[i + 1 * TsPacketSize] != SyncByte) continue;
+                    if (i + 2 * TsPacketSize < tsData.Length && tsData[i + 2 * TsPacketSize] != SyncByte) continue;
+                    if (i + 3 * TsPacketSize < tsData.Length && tsData[i + 3 * TsPacketSize] != SyncByte) continue;
+                    if (i + 4 * TsPacketSize < tsData.Length && tsData[i + 4 * TsPacketSize] != SyncByte) continue;
+                    // seems to be ok
+                    return i;
+                }
+                return -1;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("Problem in FindSync algorithm... : ", ex.Message);
+                throw;
             }
         }
 
