@@ -20,8 +20,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Threading;
-using CommandLine;
-using CommandLine.Text;
+using System.Threading.Tasks;
 
 namespace StreamGoo
 {
@@ -58,13 +57,26 @@ namespace StreamGoo
         {
             _options = new Options();
 
-            if (Parser.Default.ParseArguments(args, _options))
+            //while porting around, statically configure operations in code (until porting or writing equiv for commandlineparser package)
+
+            _options.MulticastAddress = "239.1.1.1";
+            _options.AdapterAddress = "10.10.10.1";
+            _options.MulticastGroup = 1234;
+            _options.GooDuration = 1000;
+            _options.GooFactor = 0;
+            _options.GooPause = 1000;
+            _options.GooType = 0;
+            _options.OutputMulticastGroup = 1234;
+            _options.OutputMulticastAddress = "239.1.1.2";
+            _options.OutputAdapterAddress = "10.10.10.1";
+
+            if (_options.MulticastAddress != null)
             {
                 _suppressOutput = _options.Quiet;
 
                 PrintToConsole("Cinegy StreamGoo TS Testing Tool");
-                PrintToConsole(
-                    $"Corrupting your Transport Streams since 2015 (v1.0.0 - {File.GetCreationTime(Assembly.GetExecutingAssembly().Location)})\n");
+                PrintToConsole("Corrupting your Transport Streams since 2015\n");
+
                 _gooDurationTicks = new TimeSpan(0, 0, 0, 0, _options.GooDuration).Ticks;
                 _gooType = _options.GooType > -1 ? _options.GooType : Random.Next(0, 5);
 
@@ -75,7 +87,7 @@ namespace StreamGoo
                 if (!string.IsNullOrEmpty(_options.RecordFile))
                     PrepareOutputFiles(_options.RecordFile);
 
-                StartListeningToNetwork(_options.MulticastAddress, _options.MulticastGroup);
+                ListenToNetwork(_options.MulticastAddress, _options.MulticastGroup);
 
                 Console.WriteLine("\nHit any key to stop gooeyness, then again to quit");
 
@@ -113,105 +125,6 @@ namespace StreamGoo
                 Console.ReadLine();
             }
         }
-
-        private static void StartListeningToNetwork(string multicastAddress, int multicastGroup)
-        {
-            _receiving = true;
-
-            var inputIp = _options.AdapterAddress != null ? IPAddress.Parse(_options.AdapterAddress) : IPAddress.Any;
-
-            PrintToConsole($"Looking for multicast {multicastAddress}:{multicastGroup} via adapter {inputIp}");
-
-            var client = new UdpClient { ExclusiveAddressUse = false };
-            var localEp = new IPEndPoint(inputIp, multicastGroup);
-
-            client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-            client.ExclusiveAddressUse = false;
-            client.Client.ReceiveBufferSize = 1024 * 256;
-            client.Client.Bind(localEp);
-
-            var parsedMcastAddr = IPAddress.Parse(multicastAddress);
-            client.JoinMulticastGroup(parsedMcastAddr);
-
-            var ts = new ThreadStart(delegate
-            {
-                ReceivingNetworkWorkerThread(client, localEp);
-            });
-
-            var receiverThread = new Thread(ts) { Priority = ThreadPriority.Highest };
-
-            receiverThread.Start();
-        }
-
-        private static UdpClient PrepareOutputSink(string multicastAddress, int multicastGroup)
-        {
-            _receiving = true;
-
-            var outputIp = _options.OutputAdapterAddress != null ? IPAddress.Parse(_options.OutputAdapterAddress) : IPAddress.Any;
-            PrintToConsole($"Outputting multicast data to {multicastAddress}:{multicastGroup} via adapter {outputIp}");
-
-            var client = new UdpClient { ExclusiveAddressUse = false };
-            var localEp = new IPEndPoint(outputIp, multicastGroup);
-
-            client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-            client.ExclusiveAddressUse = false;
-            client.Client.Bind(localEp);
-
-            var parsedMcastAddr = IPAddress.Parse(multicastAddress);
-            client.Connect(parsedMcastAddr, multicastGroup);
-
-            return client;
-        }
-
-        private static void ReceivingNetworkWorkerThread(UdpClient client, IPEndPoint localEp)
-        {
-            while (_receiving)
-            {
-                var data = client.Receive(ref localEp);
-                if (data != null)
-                {
-                    if (!_packetsStarted)
-                    {
-                        PrintToConsole("Started receiving packets...");
-                        _packetsStarted = true;
-                    }
-                    try
-                    {
-                        if (_outputClient != null)
-                        {
-                            InsertGoo(ref data);
-                            if (data != null)
-                            {
-                                _outputClient.Send(data, data.Length);
-                                if (_tsFileBinaryWriter != null)
-                                {
-                                    //todo: add RTP header skipping to this call
-                                    const int headerLength = 12;
-                                    _tsFileBinaryWriter.Write(data, headerLength, data.Length - headerLength);
-                                    _recordedByteCounter += data.Length + headerLength;
-                                }
-                            }
-                        }
-                        else
-                        {
-                            PrintToConsole("Writing to null output client...");
-                            Console.WriteLine("\nHit any key to quit");
-                            Console.ReadKey();
-                            Environment.Exit((int)ExitCodes.NullOutputWriter);
-                        }
-
-                    }
-                    catch (Exception ex)
-                    {
-                        PrintToConsole($@"Unhandled exception withing network receiver: {ex.Message}");
-                        Console.WriteLine("\nHit any key to quit");
-                        Console.ReadKey();
-                        Environment.Exit((int)ExitCodes.UnknownError);
-                    }
-                }
-            }
-        }
-
         private static void PrepareOutputFiles(string fileName)
         {
             var file = Path.GetFileNameWithoutExtension(fileName);
@@ -235,8 +148,102 @@ namespace StreamGoo
             _logFileStreamWriter = new StreamWriter(fs);
         }
 
+        private static UdpClient PrepareOutputSink(string multicastAddress, int multicastGroup)
+        {
+            _receiving = true;
+
+            var outputIp = _options.OutputAdapterAddress != null ? IPAddress.Parse(_options.OutputAdapterAddress) : IPAddress.Any;
+            PrintToConsole($"Outputting multicast data to {multicastAddress}:{multicastGroup} via adapter {outputIp}");
+
+            var client = new UdpClient { ExclusiveAddressUse = false };
+            var localEp = new IPEndPoint(outputIp, multicastGroup);
+
+            client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+            client.ExclusiveAddressUse = false;
+            client.Client.Bind(localEp);
+
+            var parsedMcastAddr = IPAddress.Parse(multicastAddress);
+            client.Connect(parsedMcastAddr, multicastGroup);
+
+            return client;
+        }
+
+        private static async Task ListenToNetwork(string multicastAddress, int multicastGroup)
+        {
+            _receiving = true;
+
+            var inputIp = _options.AdapterAddress != null ? IPAddress.Parse(_options.AdapterAddress) : IPAddress.Any;
+
+            PrintToConsole($"Looking for multicast {multicastAddress}:{multicastGroup} via adapter {inputIp}");
+
+            var client = new UdpClient { ExclusiveAddressUse = false };
+            var localEp = new IPEndPoint(inputIp, multicastGroup);
+
+            client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+            client.ExclusiveAddressUse = false;
+            client.Client.ReceiveBufferSize = 1024 * 256;
+            client.Client.Bind(localEp);
+
+            var parsedMcastAddr = IPAddress.Parse(multicastAddress);
+            client.JoinMulticastGroup(parsedMcastAddr);
+
+            while (_receiving)
+            {
+                var receivedResults = await client.ReceiveAsync().ConfigureAwait(false);
+        
+                ProcessReceivedData(receivedResults.Buffer);
+            }
+
+        }
+
+        private static void ProcessReceivedData(byte[] data)
+        {
+            if (data == null) return;
+
+            if (!_packetsStarted)
+            {
+                PrintToConsole("Started receiving packets...");
+                _packetsStarted = true;
+            }
+
+            try
+            {
+                if (_outputClient != null)
+                {
+                    InsertGoo(ref data);
+
+                    if (data == null) return;
+
+                    _outputClient.Send(data, data.Length);
+
+                    if (_tsFileBinaryWriter == null) return;
+
+                    //todo: add RTP header skipping to this call
+                    const int headerLength = 12;
+                    _tsFileBinaryWriter.Write(data, headerLength, data.Length - headerLength);
+                    _recordedByteCounter += data.Length + headerLength;
+                }
+                else
+                {
+                    PrintToConsole("Writing to null output client...");
+                    Console.WriteLine("\nHit any key to quit");
+                    Console.ReadKey();
+                    Environment.Exit((int)ExitCodes.NullOutputWriter);
+                }
+
+            }
+            catch (Exception ex)
+            {
+                PrintToConsole($@"Unhandled exception withing network receiver: {ex.Message}");
+                Console.WriteLine("\nHit any key to quit");
+                Console.ReadKey();
+                Environment.Exit((int)ExitCodes.UnknownError);
+            }
+        }
+
         private static void InsertGoo(ref byte[] data)
         {
+            return;
             var gooFactor = _options.GooFactor;
 
             if (gooFactor == 0) return;
@@ -298,7 +305,6 @@ namespace StreamGoo
             }
         }
 
-
         private static void PrintToConsole(string message, bool verbose = false)
         {
             if (_logFileStreamWriter != null && _logFileStreamWriter.BaseStream.CanWrite)
@@ -318,77 +324,5 @@ namespace StreamGoo
 
     }
 
-    // Define a class to receive parsed values
-    class Options
-    {
-        [Option('a', "adapter", Required = false,
-        HelpText = "IP address of the adapter to listen for specified multicast (has a random guess if left blank).")]
-        public string AdapterAddress { get; set; }
-
-        [Option('b', "outputadapter", Required = false,
-        HelpText = "IP address of the adapter to write the goo'd stream to (has a random guess if left blank).")]
-        public string OutputAdapterAddress { get; set; }
-
-        [Option('m', "multicastaddress", Required = true,
-        HelpText = "Input multicast address to read from.")]
-        public string MulticastAddress { get; set; }
-
-        [Option('g', "mulicastgroup", Required = true,
-        HelpText = "Input multicast group port to read from.")]
-        public int MulticastGroup { get; set; }
-
-        [Option('n', "outputaddress", Required = true,
-        HelpText = "Output address to write goo'd stream to.")]
-        public string OutputMulticastAddress { get; set; }
-
-        [Option('h', "outputport", Required = true,
-        HelpText = "Output multicast group or UDP port to write goo'd stream to.")]
-        public int OutputMulticastGroup { get; set; }
-
-        [Option('f', "goofactor", Required = false, DefaultValue = 0,
-        HelpText = "Controllable level of Gooeyness to insert into stream (chances in 1000 of inserting a drop of scum).")]
-        public int GooFactor { get; set; }
-
-        [Option('p', "goopause", Required = false, DefaultValue = 0,
-        HelpText = "How long to sleep between Goos (milliseconds)")]
-        public int GooPause { get; set; }
-
-        [Option('d', "gooduration", Required = false, DefaultValue = 1000,
-        HelpText = "How long to sleep between Goos (millseconds)")]
-        public int GooDuration { get; set; }
-
-        [Option('t', "gootype", Required = false, DefaultValue = -1,
-        HelpText = "Force a specific goo type rather than changing each run")]
-        public int GooType { get; set; }
-
-        [Option('q', "quiet", Required = false, DefaultValue = false,
-        HelpText = "Run in quiet mode - print nothing to console.")]
-        public bool Quiet { get; set; }
-
-        [Option('v', "verbose", Required = false, DefaultValue = false,
-        HelpText = "Run in verbose mode.")]
-        public bool Verbose { get; set; }
-
-        [Option('r', "record", Required = false,
-        HelpText = "Record output stream to a specified file.")]
-        public string RecordFile { get; set; }
-
-        [Option('w', "warmup", Required = false, DefaultValue = 10000,
-        HelpText = "Default normal, un-goo'd startup period (milliseconds) before starting goo")]
-        public int WarmupTime { get; set; }
-
-        [ParserState]
-        public IParserState LastParserState { get; set; }
-
-        [HelpOption]
-        public string GetUsage()
-        {
-            var msg = HelpText.AutoBuild(this,
-              current => HelpText.DefaultParsingErrorsHandler(this, current));
-
-            return msg;
-        }
-
-    }
 
 }
