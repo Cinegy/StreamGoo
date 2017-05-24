@@ -235,7 +235,7 @@ namespace StreamGoo
             Array.ForEach(Path.GetInvalidFileNameChars(),
                 c => file = file.Replace(c.ToString(), String.Empty));
 
-            var path = Path.GetPathRoot(fileName);
+            var path = Path.GetFullPath(fileName);
 
             var fs = new FileStream(path + file + ".ts", FileMode.OpenOrCreate);
 
