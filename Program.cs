@@ -1,4 +1,4 @@
-﻿/*   Copyright 2016 Cinegy GmbH
+﻿/*   Copyright 2018 Cinegy GmbH
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ using System.Net.Sockets;
 using System.Reflection;
 using System.Threading;
 using CommandLine;
-using CommandLine.Text;
 
 namespace StreamGoo
 {
@@ -58,65 +57,74 @@ namespace StreamGoo
         private const byte SyncByte = 0x47;
         private const int TsPacketSize = 188;
 
-        static void Main(string[] args)
+        static int Main(string[] args)
         {
-            _options = new Options();
+            var result = Parser.Default.ParseArguments<Options>(args);
 
-            if (Parser.Default.ParseArguments(args, _options))
+            return result.MapResult(
+                Run,
+                errs => CheckArgumentErrors());
+        }
+        private static int CheckArgumentErrors()
+        {
+            //will print using library the appropriate help - now pause the console for the viewer
+            Console.WriteLine("Hit enter to quit");
+            Console.ReadLine();
+            return -1;
+        }
+
+        private static int Run(Options opts)
+        {
+            _suppressOutput = _options.Quiet;
+
+            PrintToConsole("Cinegy StreamGoo TS Testing Tool");
+            PrintToConsole(
+                $"Corrupting your Transport Streams since 2015 (v1.0.0 - {File.GetCreationTime(Assembly.GetExecutingAssembly().Location)})\n");
+            _gooDurationTicks = new TimeSpan(0, 0, 0, 0, _options.GooDuration).Ticks;
+            _gooType = _options.GooType > -1 ? _options.GooType : Random.Next(0, 5);
+
+            _gooStarted = DateTime.Now.AddMilliseconds(_options.WarmupTime).TimeOfDay;
+
+            _outputClient = PrepareOutputSink(_options.OutputMulticastAddress, _options.OutputMulticastGroup);
+
+            if (!string.IsNullOrEmpty(_options.RecordFile))
+                PrepareOutputFiles(_options.RecordFile);
+
+            StartListeningToNetwork(_options.MulticastAddress, _options.MulticastGroup);
+
+            Console.WriteLine("\nHit any key to stop gooeyness, then again to quit");
+
+            var doExit = false;
+            var origGooFactor = _options.GooFactor;
+
+            while (!doExit)
             {
-                _suppressOutput = _options.Quiet;
+                var keypress = Console.ReadKey();
 
-                PrintToConsole("Cinegy StreamGoo TS Testing Tool");
-                PrintToConsole(
-                    $"Corrupting your Transport Streams since 2015 (v1.0.0 - {File.GetCreationTime(Assembly.GetExecutingAssembly().Location)})\n");
-                _gooDurationTicks = new TimeSpan(0, 0, 0, 0, _options.GooDuration).Ticks;
-                _gooType = _options.GooType > -1 ? _options.GooType : Random.Next(0, 5);
-
-                _gooStarted = DateTime.Now.AddMilliseconds(_options.WarmupTime).TimeOfDay;
-
-                _outputClient = PrepareOutputSink(_options.OutputMulticastAddress, _options.OutputMulticastGroup);
-
-                if (!string.IsNullOrEmpty(_options.RecordFile))
-                    PrepareOutputFiles(_options.RecordFile);
-
-                StartListeningToNetwork(_options.MulticastAddress, _options.MulticastGroup);
-
-                Console.WriteLine("\nHit any key to stop gooeyness, then again to quit");
-
-                var doExit = false;
-                var origGooFactor = _options.GooFactor;
-
-                while (!doExit)
+                if (keypress.KeyChar == 'q')
                 {
-                    var keypress = Console.ReadKey();
-
-                    if (keypress.KeyChar == 'q')
-                    {
-                        doExit = true;
-                    }
-
-                    if (_options.GooFactor == 0)
-                    {
-                        _options.GooFactor = origGooFactor;
-                        PrintToConsole("Setting goo factor back to original value...");
-                    }
-                    else
-                    {
-                        _options.GooFactor = 0;
-                        PrintToConsole("Pausing all goo - hit q to quit, any other key to start goo again");
-                    }
+                    doExit = true;
                 }
 
-                PrintToConsole("Terminating StreamGoo");
-                _receiving = false;
+                if (_options.GooFactor == 0)
+                {
+                    _options.GooFactor = origGooFactor;
+                    PrintToConsole("Setting goo factor back to original value...");
+                }
+                else
+                {
+                    _options.GooFactor = 0;
+                    PrintToConsole("Pausing all goo - hit q to quit, any other key to start goo again");
+                }
             }
-            else
-            {
-                //if arguments are screwed up, this will print to screen (via the CommandLine library conventions) - then this waits for exit
-                PrintToConsole("Press enter to exit");
-                Console.ReadLine();
-            }
+
+            PrintToConsole("Terminating StreamGoo");
+            _receiving = false;
+
+            return 0;
         }
+
+        
 
         private static void StartListeningToNetwork(string multicastAddress, int multicastGroup)
         {
@@ -403,27 +411,27 @@ namespace StreamGoo
         HelpText = "Output multicast group or UDP port to write goo'd stream to.")]
         public int OutputMulticastGroup { get; set; }
 
-        [Option('f', "goofactor", Required = false, DefaultValue = 0,
+        [Option('f', "goofactor", Required = false, Default = 0,
         HelpText = "Controllable level of Gooeyness to insert into stream (chances in 10,000 of inserting a drop of scum).")]
         public int GooFactor { get; set; }
 
-        [Option('p', "goopause", Required = false, DefaultValue = 0,
+        [Option('p', "goopause", Required = false, Default = 0,
         HelpText = "How long to sleep between Goos (milliseconds)")]
         public int GooPause { get; set; }
 
-        [Option('d', "gooduration", Required = false, DefaultValue = 1000,
+        [Option('d', "gooduration", Required = false, Default = 1000,
         HelpText = "How long to sleep between Goos (millseconds)")]
         public int GooDuration { get; set; }
 
-        [Option('t', "gootype", Required = false, DefaultValue = -1,
+        [Option('t', "gootype", Required = false, Default = -1,
         HelpText = "Force a specific goo type rather than changing each run")]
         public int GooType { get; set; }
 
-        [Option('q', "quiet", Required = false, DefaultValue = false,
+        [Option('q', "quiet", Required = false, Default = false,
         HelpText = "Run in quiet mode - print nothing to console.")]
         public bool Quiet { get; set; }
 
-        [Option('v', "verbose", Required = false, DefaultValue = false,
+        [Option('v', "verbose", Required = false, Default = false,
         HelpText = "Run in verbose mode.")]
         public bool Verbose { get; set; }
 
@@ -431,22 +439,10 @@ namespace StreamGoo
         HelpText = "Record output stream to a specified file.")]
         public string RecordFile { get; set; }
 
-        [Option('w', "warmup", Required = false, DefaultValue = 10000,
+        [Option('w', "warmup", Required = false, Default = 10000,
         HelpText = "Default normal, un-goo'd startup period (milliseconds) before starting goo")]
         public int WarmupTime { get; set; }
-
-        [ParserState]
-        public IParserState LastParserState { get; set; }
-
-        [HelpOption]
-        public string GetUsage()
-        {
-            var msg = HelpText.AutoBuild(this,
-              current => HelpText.DefaultParsingErrorsHandler(this, current));
-
-            return msg;
-        }
-
+        
     }
 
 }
