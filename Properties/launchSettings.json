@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "StreamGoo": {
+      "commandName": "Project",
+      "commandLineArgs": "-m 239.186.31.29 -g 1234 -n 239.186.31.42 -h 1234 -a 10.186.3.42 -b 10.186.3.42 -f 10 -t 4 -p 1000 -w 1000"
+    }
+  }
+}

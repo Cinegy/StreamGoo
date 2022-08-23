@@ -1,4 +1,4 @@
-﻿/*   Copyright 2018 Cinegy GmbH
+﻿/*   Copyright 2015-2022 Cinegy GmbH
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
-using System.Reflection;
 using System.Threading;
 using CommandLine;
 
@@ -26,7 +25,7 @@ namespace StreamGoo
 {
     /// <summary>
     /// StreamGoo - the simple RTP echo tool designed to screw with TS data to make
-    /// life harder for recievers...
+    /// life harder for receivers...
     /// 
     /// If GooFactor is set to 0, acts a quite a nice efficient little RTP relay :-)
     /// 
@@ -45,8 +44,8 @@ namespace StreamGoo
         private static bool _packetsStarted;
         private static bool _suppressOutput;
         private static Options _options;
-        private static readonly Random Random = new Random();
-        private static TimeSpan _gooStarted = new TimeSpan(0);
+        private static readonly Random Random = new();
+        private static TimeSpan _gooStarted = new(0);
         private static int _gooType;
         private static long _gooDurationTicks;
         private static BinaryWriter _tsFileBinaryWriter;
@@ -57,14 +56,13 @@ namespace StreamGoo
         private const byte SyncByte = 0x47;
         private const int TsPacketSize = 188;
 
-        static int Main(string[] args)
+        private static int Main(string[] args)
         {
             var result = Parser.Default.ParseArguments<Options>(args);
 
-            return result.MapResult(
-                Run,
-                errs => CheckArgumentErrors());
+            return result.MapResult(Run, _ => CheckArgumentErrors());
         }
+
         private static int CheckArgumentErrors()
         {
             //will print using library the appropriate help - now pause the console for the viewer
@@ -80,7 +78,7 @@ namespace StreamGoo
 
             PrintToConsole("Cinegy StreamGoo TS Testing Tool");
             PrintToConsole(
-                $"Corrupting your Transport Streams since 2015 (v1.0.0 - {File.GetCreationTime(Assembly.GetExecutingAssembly().Location)})\n");
+                $"Corrupting your Transport Streams since 2015 (v1.0.0 - {File.GetCreationTime(AppContext.BaseDirectory)})\n");
             _gooDurationTicks = new TimeSpan(0, 0, 0, 0, _options.GooDuration).Ticks;
             _gooType = _options.GooType > -1 ? _options.GooType : Random.Next(0, 5);
 
@@ -110,12 +108,12 @@ namespace StreamGoo
                 if (_options.GooFactor == 0)
                 {
                     _options.GooFactor = origGooFactor;
-                    PrintToConsole("Setting goo factor back to original value...");
+                    PrintToConsole("Setting goo factor back to original value...",true);
                 }
                 else
                 {
                     _options.GooFactor = 0;
-                    PrintToConsole("Pausing all goo - hit q to quit, any other key to start goo again");
+                    PrintToConsole("Pausing all goo - hit q to quit, any other key to start goo again",true);
                 }
             }
 
@@ -181,53 +179,51 @@ namespace StreamGoo
             while (_receiving)
             {
                 var data = client.Receive(ref localEp);
-                if (data != null)
+                if (data == null) continue;
+                if (!_packetsStarted)
                 {
-                    if (!_packetsStarted)
+                    PrintToConsole("Started receiving packets...", true);
+                    _packetsStarted = true;
+                }
+                try
+                {
+                    if (_outputClient != null)
                     {
-                        PrintToConsole("Started receiving packets...");
-                        _packetsStarted = true;
-                    }
-                    try
-                    {
-                        if (_outputClient != null)
+                        InsertGoo(ref data);
+                        if (data != null)
                         {
-                            InsertGoo(ref data);
-                            if (data != null)
+                            _outputClient.Send(data, data.Length);
+                            //check to see if any out-of-order packets are waiting to be sent
+                            if (_outOfOrderPacketBuffer != null)
                             {
-                                _outputClient.Send(data, data.Length);
-                                //check to see if any out-of-order packets are waiting to be sent
-                                if (_outOfOrderPacketBuffer != null)
-                                {
-                                    _outputClient.Send(_outOfOrderPacketBuffer, _outOfOrderPacketBuffer.Length);
-                                    _outOfOrderPacketBuffer = null;
-                                }
-                                
-                                if (_tsFileBinaryWriter != null)
-                                {
-                                    //todo: add RTP header skipping to this call
-                                    const int headerLength = 12;
-                                    _tsFileBinaryWriter.Write(data, headerLength, data.Length - headerLength);
-                                    _recordedByteCounter += data.Length + headerLength;
-                                }
+                                _outputClient.Send(_outOfOrderPacketBuffer, _outOfOrderPacketBuffer.Length);
+                                _outOfOrderPacketBuffer = null;
+                            }
+
+                            if (_tsFileBinaryWriter != null)
+                            {
+                                //todo: add RTP header skipping to this call
+                                const int headerLength = 12;
+                                _tsFileBinaryWriter.Write(data, headerLength, data.Length - headerLength);
+                                _recordedByteCounter += data.Length + headerLength;
                             }
                         }
-                        else
-                        {
-                            PrintToConsole("Writing to null output client...");
-                            Console.WriteLine("\nHit any key to quit");
-                            Console.ReadKey();
-                            Environment.Exit((int)ExitCodes.NullOutputWriter);
-                        }
-
                     }
-                    catch (Exception ex)
+                    else
                     {
-                        PrintToConsole($@"Unhandled exception withing network receiver: {ex.Message}");
+                        PrintToConsole("Writing to null output client...",true);
                         Console.WriteLine("\nHit any key to quit");
                         Console.ReadKey();
-                        Environment.Exit((int)ExitCodes.UnknownError);
+                        Environment.Exit((int)ExitCodes.NullOutputWriter);
                     }
+
+                }
+                catch (Exception ex)
+                {
+                    PrintToConsole($@"Unhandled exception withing network receiver: {ex.Message}",true);
+                    Console.WriteLine("\nHit any key to quit");
+                    Console.ReadKey();
+                    Environment.Exit((int)ExitCodes.UnknownError);
                 }
             }
         }
@@ -264,20 +260,20 @@ namespace StreamGoo
             if (_gooStarted.Ticks == 0)
             {
                 _gooStarted = DateTime.Now.TimeOfDay;
-                PrintToConsole($"Starting new Goo period for {_options.GooDuration} milliseconds");
+                PrintToConsole($"Starting new Goo period for {_options.GooDuration} milliseconds",true);
             }
 
             //see if we reached a pause time
             var ticks = DateTime.Now.TimeOfDay.Ticks - _gooStarted.Ticks;
-            if ((ticks) > _gooDurationTicks)
+            if (ticks > _gooDurationTicks)
             {
                 _gooStarted = DateTime.Now.TimeOfDay.Add(new TimeSpan(0, 0, 0, 0, _options.GooPause));
                 _gooType = _options.GooType > -1 ? _options.GooType : Random.Next(0, 5);
-                PrintToConsole($"Pausing Goo for {_options.GooPause} milliseconds, next goo type: {_gooType} ");
+                PrintToConsole($"Pausing Goo for {_options.GooPause} milliseconds, next goo type: {_gooType} ", true);
             }
 
             //see if we have reached a goo time
-            if ((DateTime.Now.TimeOfDay.Ticks - _gooStarted.Ticks) < 0)
+            if (DateTime.Now.TimeOfDay.Ticks - _gooStarted.Ticks < 0)
             {
                 return;
             }
@@ -294,93 +290,85 @@ namespace StreamGoo
                 case 0: //single bit error
                     var pow = Random.Next(0, 8);
                     var bitToAdd = 1 << pow;
-                    data[randomNumber] = (byte)(data[randomNumber] + (byte)(bitToAdd));
+                    data[randomNumber] = (byte)(data[randomNumber] + (byte)bitToAdd);
                     PrintToConsole(
                         $@"Adding a little goo (single bit error) - Pos: {randomNumber}, Old: {oldval} + {bitToAdd}, New: {data[
-                            randomNumber]}");
+                            randomNumber]}",true);
                     return;
                 case 1: //single byte increment
                     PrintToConsole(
                         $@"Adding a little goo (single byte increment) - Pos: {randomNumber}, Old: {oldval}, New: {++
-                            data[randomNumber]}");
+                            data[randomNumber]}", true);
                     return;
                 case 2: //zero whole packet
                     data = Enumerable.Repeat((byte)0x0, data.Length).ToArray();
-                    PrintToConsole(@"Adding a little goo to your stream (zero whole packet)");
+                    PrintToConsole(@"Adding a little goo to your stream (zero whole packet)", true);
                     return;
                 case 3: //random value filling whole packet
                     data = Enumerable.Repeat((byte)Random.Next(0, 255), data.Length).ToArray();
-                    PrintToConsole($@"Adding a little goo to your stream (write {data[randomNumber]} to whole packet)");
+                    PrintToConsole($@"Adding a little goo to your stream (write {data[randomNumber]} to whole packet)", true);
                     return;
                 case 4: //null whole packet
                     data = null;
-                    PrintToConsole(@"Adding a little goo to your stream (discarding packet)");
+                    PrintToConsole(@"Adding a little goo to your stream (discarding packet)", true);
                     return;
                 case 5: //out of order packet
                     _outOfOrderPacketBuffer = data;
                     data = null;
-                    PrintToConsole(@"Adding a little goo to your stream (out of order packet)");
+                    PrintToConsole(@"Adding a little goo to your stream (out of order packet)", true);
                     return;
                 case 6: //jitter - have a little snooze
                     var timeToSleep = Random.Next(0, 80);
-                    PrintToConsole($"Adding a little goo to your stream (add jitter - sleep approx. {timeToSleep} ms)");
+                    PrintToConsole($"Adding a little goo to your stream (add jitter - sleep approx. {timeToSleep} ms)", true);
                     Thread.Sleep(timeToSleep);
                     return;
                 case 7: //transport error indicator randomly set
-                    PrintToConsole($"Adding a little goo to your stream (add Transport Error Indicator)");
-                    SetTEIFlag(ref data);
+                    PrintToConsole($"Adding a little goo to your stream (add Transport Error Indicator)", true);
+                    SetTeiFlag(ref data);
                     return;
             }
         }
 
-        private static void SetTEIFlag(ref byte[] data)
+        private static void SetTeiFlag(ref byte[] data)
         {
             var start = FindSync(ref data, 0);
-            data[start + 1] = (byte)(data[start + 1] + (byte)0x80);
+            data[start + 1] = (byte)(data[start + 1] + 0x80);
         }
 
         private static int FindSync(ref byte[] tsData, int offset)
         {
             if (tsData == null) throw new ArgumentNullException(nameof(tsData));
-
-            try
+            
+            for (var i = offset; i < tsData.Length; i++)
             {
-                for (var i = offset; i < tsData.Length; i++)
-                {
-                    //check to see if we found a sync byte
-                    if (tsData[i] != SyncByte) continue;
-                    if (i + 1 * TsPacketSize < tsData.Length && tsData[i + 1 * TsPacketSize] != SyncByte) continue;
-                    if (i + 2 * TsPacketSize < tsData.Length && tsData[i + 2 * TsPacketSize] != SyncByte) continue;
-                    if (i + 3 * TsPacketSize < tsData.Length && tsData[i + 3 * TsPacketSize] != SyncByte) continue;
-                    if (i + 4 * TsPacketSize < tsData.Length && tsData[i + 4 * TsPacketSize] != SyncByte) continue;
-                    // seems to be ok
-                    return i;
-                }
-                return -1;
+                //check to see if we found a sync byte
+                if (tsData[i] != SyncByte) continue;
+                if (i + 1 * TsPacketSize < tsData.Length && tsData[i + 1 * TsPacketSize] != SyncByte) continue;
+                if (i + 2 * TsPacketSize < tsData.Length && tsData[i + 2 * TsPacketSize] != SyncByte) continue;
+                if (i + 3 * TsPacketSize < tsData.Length && tsData[i + 3 * TsPacketSize] != SyncByte) continue;
+                if (i + 4 * TsPacketSize < tsData.Length && tsData[i + 4 * TsPacketSize] != SyncByte) continue;
+                // seems to be ok
+                return i;
             }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine("Problem in FindSync algorithm... : ", ex.Message);
-                throw;
-            }
+            return -1;
         }
 
 
-        private static void PrintToConsole(string message, bool verbose = false)
+        private static void PrintToConsole(string message, bool timeStampConsole = false, bool verbose = false)
         {
             if (_logFileStreamWriter != null && _logFileStreamWriter.BaseStream.CanWrite)
             {
-                _logFileStreamWriter.WriteLine("{0} (byte region: {1}) - {2}", DateTime.Now.ToString("HH:mm:ss"), _recordedByteCounter, message);
+                _logFileStreamWriter.WriteLine("{0:HH:mm:ss} (byte region: {1}) - {2}", DateTime.Now, _recordedByteCounter, message);
                 _logFileStreamWriter.Flush();
             }
 
             if (_suppressOutput)
                 return;
 
-            if ((!_options.Verbose) && verbose)
+            if (!_options.Verbose && verbose)
                 return;
 
-            Console.WriteLine(message);
+            Console.WriteLine(timeStampConsole ? $"({DateTime.UtcNow:HH:mm:ss}): {message}" : message);
         }
 
     }
