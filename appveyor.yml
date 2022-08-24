@@ -18,9 +18,14 @@ build:
   verbosity: minimal
 after_build:
 - pwsh: >-
-    dotnet publish StreamGoo.csproj -c Release -r win-x64
+    dotnet publish StreamGoo.csproj /p:PublishProfile=FolderProfileWinx64
+
+    dotnet publish StreamGoo.csproj /p:PublishProfile=FolderProfileLinx64
     
-    7z a StreamGoo-Win-x64-$Env:APPVEYOR_REPO_BRANCH-$Env:APPVEYOR_BUILD_VERSION.zip $Env:APPVEYOR_BUILD_FOLDER
+    7z a StreamGoo-Win-x64-$Env:APPVEYOR_REPO_BRANCH-$Env:APPVEYOR_BUILD_VERSION-Bulk.zip $Env:APPVEYOR_BUILD_FOLDER
     
     appveyor PushArtifact StreamGoo-Win-x64-$Env:APPVEYOR_REPO_BRANCH-$Env:APPVEYOR_BUILD_VERSION.zip
-    
+
+    appveyor PushArtifact $Env:APPVEYOR_BUILD_FOLDER\bin\Release\net6.0\publish\win-x64\StreamGoo.exe
+        
+    appveyor PushArtifact $Env:APPVEYOR_BUILD_FOLDER\bin\Release\net6.0\publish\linux-x64\StreamGoo
