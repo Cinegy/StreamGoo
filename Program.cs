@@ -20,6 +20,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using CommandLine;
+using StreamGoo.Helpers;
 
 namespace StreamGoo
 {
@@ -76,9 +77,8 @@ namespace StreamGoo
             _options = opts;
             _suppressOutput = _options.Quiet;
 
-            PrintToConsole("Cinegy StreamGoo TS Testing Tool");
-            PrintToConsole(
-                $"Corrupting your Transport Streams since 2015 (v1.0.0 - {File.GetCreationTime(AppContext.BaseDirectory)})\n");
+            PrintToConsole($"{Product.Name}: {Product.Version} (Built: {Product.BuildTime})");
+            PrintToConsole($"Corrupting your Transport Streams since 2015...\n");
             _gooDurationTicks = new TimeSpan(0, 0, 0, 0, _options.GooDuration).Ticks;
             _gooType = _options.GooType > -1 ? _options.GooType : Random.Next(0, 5);
 
