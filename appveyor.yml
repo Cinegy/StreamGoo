@@ -1,0 +1,26 @@
+﻿version: 2.0.{build}
+image: Visual Studio 2022
+configuration: Release
+platform: Any CPU
+dotnet_csproj:
+  patch: true
+  file: '**\*.csproj'
+  version: '{version}'
+  version_prefix: '{version}'
+  package_version: '{version}'
+  assembly_version: '{version}'
+  file_version: '{version}'
+  informational_version: '{version}'
+before_build:
+- pwsh: nuget restore StreamGoo.sln
+build:
+  project: StreamGoo.csproj
+  verbosity: minimal
+after_build:
+- pwsh: >-
+    dotnet publish StreamGoo.csproj -c Release -r win-x64
+    
+    7z a StreamGoo-Win-x64-$Env:APPVEYOR_REPO_BRANCH-$Env:APPVEYOR_BUILD_VERSION.zip $Env:APPVEYOR_BUILD_FOLDER
+    
+    appveyor PushArtifact StreamGoo-Win-x64-$Env:APPVEYOR_REPO_BRANCH-$Env:APPVEYOR_BUILD_VERSION.zip
+    

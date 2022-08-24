@@ -1,9 +1,9 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 14
-VisualStudioVersion = 14.0.24720.0
+# Visual Studio Version 17
+VisualStudioVersion = 17.2.32526.322
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StreamGoo", "StreamGoo.csproj", "{92A86FC1-B965-43EF-B280-75609A11D738}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "StreamGoo", "StreamGoo.csproj", "{92A86FC1-B965-43EF-B280-75609A11D738}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -18,5 +18,8 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {D0307A17-F4B4-4A28-A91F-F2E5B9BC4DC2}
 	EndGlobalSection
 EndGlobal
