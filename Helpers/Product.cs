@@ -18,7 +18,6 @@ public static class Product
         var assembly = Assembly.GetExecutingAssembly();
 
         var appFile = Path.Combine(AppContext.BaseDirectory, "streamgoo");
-        
         if (File.Exists(appFile))
         {
             var versionInfo = FileVersionInfo.GetVersionInfo(appFile);
@@ -28,10 +27,19 @@ public static class Product
         }
         else if (File.Exists($"{appFile}.exe"))
         {
-            var versionInfo = FileVersionInfo.GetVersionInfo($"{appFile}.exe");
+            var filePath = $"{appFile}.exe";
+            var versionInfo = FileVersionInfo.GetVersionInfo(filePath);
 
             Version = versionInfo.FileVersion;
-            BuildTime = File.GetCreationTime(appFile);
+            BuildTime = File.GetCreationTime(filePath);
+        }
+        else if (File.Exists($"{appFile}.dll"))
+        {
+            var filePath = $"{appFile}.dll";
+            var versionInfo = FileVersionInfo.GetVersionInfo(filePath);
+
+            Version = versionInfo.FileVersion;
+            BuildTime = File.GetCreationTime(filePath);
         }
 
         Name = "StreamGoo";
